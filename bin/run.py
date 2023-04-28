@@ -19,7 +19,7 @@ def main(config):
         print(config, 'not found...')
         sys.exit(1)
 
-    cfg = yaml.load(open(cfg_file, 'r'), Loader=yaml.Loader)
+    cfg = yaml.load(open(cfg_file, 'r').read().replace('DATA_DIR',os.getenv('DATA_DIR')), Loader=yaml.Loader)
 
     if environ.get('CUDA_VISIBLE_DEVICES') is not None and cfg['trainval']['gpus'] == '-1':
         cfg['trainval']['gpus'] = os.getenv('CUDA_VISIBLE_DEVICES')

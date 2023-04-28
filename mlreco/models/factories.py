@@ -10,6 +10,7 @@ def model_dict():
     """
     from . import grappa
 
+    from . import unet
     from . import uresnet
     from . import uresnet_ppn_chain
     from . import spice
@@ -26,6 +27,8 @@ def model_dict():
         "full_chain": (full_chain.FullChain, full_chain.FullChainLoss),
 
         # --------------------MinkowskiEngine Backend----------------------
+        # UNet
+        "unet":(unet.UNet_Chain, unet.SegmentationLoss),
         # UresNet
         "uresnet": (uresnet.UResNet_Chain, uresnet.SegmentationLoss),
         # UResNet + PPN
