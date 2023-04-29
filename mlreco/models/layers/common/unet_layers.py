@@ -190,7 +190,7 @@ class UNet3Plus(torch.nn.Module):
 
         self.num_filters = self.encoder.num_filters
         self.cat_channels = self.num_filters
-        self.upsample_channels = self.cat_channels * self.depth
+        self.upsample_channels = self.cat_channels * self.encoder.depth
 
         # print('Total Number of Trainable Parameters (mink/layers/uresnet) = {}'.format(
         #             sum(p.numel() for p in self.parameters() if p.requires_grad)))
@@ -354,7 +354,7 @@ class FeatureAggregationBlock(nn.Module):
             self.BN(self.cat_channels),
             self.ReLU()
         )
-        self.Conv_out = nn.Sequental(
+        self.Conv_out = nn.Sequential(
             self.Conv(self.upsample_channels, self.upsample_channels, 3, dimension=self.D, bias=self.allow_bias),
             self.BN(self.upsample_channels),
             self.ReLU()

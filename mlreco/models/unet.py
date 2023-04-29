@@ -88,7 +88,7 @@ class UNet_Chain(nn.Module):
         self.D = self.net.D
         self.upsample_channels = self.net.upsample_channels
         self.output = [
-            normalizations_construct(self.net.norm, self.W, **self.net.norm_args),
+            normalizations_construct(self.net.norm, self.upsample_channels, **self.net.norm_args),
             #activations_construct(self.net.activation_name, **self.net.activation_args),
             activations_construct(self.net.activation_name, negative_slope=0.33),
             # ME.MinkowskiConvolution(self.upsample_channels, self.num_classes, 3, dimension=3)
