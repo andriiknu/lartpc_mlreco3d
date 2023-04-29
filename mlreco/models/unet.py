@@ -86,14 +86,16 @@ class UNet_Chain(nn.Module):
         self.net = UNet3Plus(cfg, name=name)
         self.F = self.net.num_filters
         self.D = self.net.D
-        self.W = self.depth*5
+        self.upsample_channels = self.net.upsample_channels
         self.output = [
             normalizations_construct(self.net.norm, self.W, **self.net.norm_args),
             #activations_construct(self.net.activation_name, **self.net.activation_args),
             activations_construct(self.net.activation_name, negative_slope=0.33),
+            # ME.MinkowskiConvolution(self.upsample_channels, self.num_classes, 3, dimension=3)
             ]
         self.output = nn.Sequential(*self.output)
-        self.linear_segmentation = ME.MinkowskiLinear(self.W, self.num_classes)
+        # self.softmax = ME.MinkowskiSoftmax()
+        self.linear_segmentation = ME.MinkowskiLinear(self.upsample_channels, self.num_classes)
 
         # if self.ghost:
         #     print("Ghost Masking is enabled for UResNet Segmentation")

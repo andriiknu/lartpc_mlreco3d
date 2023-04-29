@@ -189,6 +189,8 @@ class UNet3Plus(torch.nn.Module):
         self.decoder = UNet3PlusDecoder(cfg, name=name)
 
         self.num_filters = self.encoder.num_filters
+        self.cat_channels = self.num_filters
+        self.upsample_channels = self.cat_channels * self.depth
 
         # print('Total Number of Trainable Parameters (mink/layers/uresnet) = {}'.format(
         #             sum(p.numel() for p in self.parameters() if p.requires_grad)))
@@ -330,6 +332,8 @@ class FeatureAggregationBlock(nn.Module):
         self.model_config = cfg.get(name, {})
         self.depth = self.model_config.get('depth', 5)
         self.num_filters = self.model_config.get('filters', 16)
+        self.cat_channels = self.num_filters
+        self.upsample_channels = self.cat_channels * self.depth
         self.nPlanes = [i*self.num_filters for i in range(1, self.depth+1)]
         self.Conv = ME.MinkowskiConvolution
         self.Up = ME.MinkowskiPoolingTranspose
@@ -338,10 +342,23 @@ class FeatureAggregationBlock(nn.Module):
         self.BN = ME.MinkowskiBatchNorm
         self.encod_conv = []
         for i, n in enumerate(self.nPlanes):
-            conv = self.Conv(n, self.num_filters, 3, dimension=self.D, bias=self.allow_bias)
-            self.encod_conv.append(conv)
+            m = nn.Sequential(
+                self.Conv(n, self.cat_channels, 3, dimension=self.D, bias=self.allow_bias),
+                self.BN(self.cat_channels),
+                self.ReLU()
+            )
+            self.encod_conv.append(m)
         self.encod_conv = nn.Sequential(*self.encod_conv)
-        self.decod_conv = self.Conv(self.depth*5, self.num_filters, kernel_size=3, dimension=self.D, bias=self.allow_bias)
+        self.decod_conv = nn.Sequential(
+            self.Conv(self.upsample_channels, self.cat_channels, kernel_size=3, dimension=self.D, bias=self.allow_bias),
+            self.BN(self.cat_channels),
+            self.ReLU()
+        )
+        self.Conv_out = nn.Sequental(
+            self.Conv(self.upsample_channels, self.upsample_channels, 3, dimension=self.D, bias=self.allow_bias),
+            self.BN(self.upsample_channels),
+            self.ReLU()
+        )
         # self.activation = activations_construct(self.activation_name, **self.activation_args)
 
     def forward(self,encoder_tensors, decoder_tensors, final):
@@ -376,7 +393,7 @@ class FeatureAggregationBlock(nn.Module):
 
     
         agg = ME.cat(agg)
-        agg = self.Conv(agg.shape[1], self.depth*5, 3, dimension=self.D, bias=self.allow_bias).cuda()(agg)
+        agg = self.Conv_out(agg)
 
         # agg = self.BN(agg.shape[1])
         # agg = self.ReLU()(agg)
