@@ -110,7 +110,7 @@ class UNet_Chain(nn.Module):
         for igpu, x in enumerate(input):
             res = self.net(x)
             feats = res['decoderTensors'][-1]
-            feats = self.output(feats)
+            # feats = self.output(feats)
             seg = self.linear_segmentation(feats)
             out['segmentation'].append(seg.F)
             out['finalTensor'].append(res['finalTensor'])

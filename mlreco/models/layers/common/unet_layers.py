@@ -226,22 +226,7 @@ class UNet3PlusDecoder(nn.Module):
 
         # Initialize Decoder
         self.feature_agg = FeatureAggregationBlock(cfg,name=name).cuda()
-        self.decoding_block = []
 
-        for _ in range(self.depth-2, -1, -1):
-            m = []
-            for _ in range(self.reps):
-                m.append(ResNetBlock(self.depth*5,
-                                     self.depth*5,
-                                     dimension=self.D,
-                                     activation=self.activation_name,
-                                     activation_args=self.activation_args,
-                                     normalization=self.norm,
-                                     normalization_args=self.norm_args,
-                                     bias=self.allow_bias))
-            m = nn.Sequential(*m)
-            self.decoding_block.append(m)
-        self.decoding_block = nn.Sequential(*self.decoding_block)
 
     def decoder(self, encoderTensors, final):
         '''
@@ -259,70 +244,13 @@ class UNet3PlusDecoder(nn.Module):
         '''
         decoderTensors = []
 
-        for _,block in enumerate(self.decoding_block):
+        for _ in range(self.depth-1):
             x = self.feature_agg(encoderTensors,decoderTensors,final)
-            x = block(x)
             decoderTensors.append(x)
         return decoderTensors
 
     def forward(self, encoderTensors, final):
         return self.decoder(encoderTensors, final)
-
-# class FeatureAggregationBlock(nn.Module):
-#     def __init__(self, cfg, name):
-#         super(FeatureAggregationBlock, self).__init__()
-#         setup_cnn_configuration(self, cfg, name)
-#         self.model_config = cfg.get(name, {})
-#         self.depth = self.model_config.get('depth', 5)
-#         self.num_filters = self.model_config.get('filters', 16)
-#         self.nPlanes = [i*self.num_filters for i in range(1, self.depth+1)]
-#         self.Conv = ME.MinkowskiConvolution
-#         self.Up = ME.MinkowskiPoolingTranspose
-#         self.Down = ME.MinkowskiMaxPooling
-#         self.ReLU = ME.MinkowskiReLU
-#         self.BN = ME.MinkowskiBatchNorm
-#         # self.activation = activations_construct(self.activation_name, **self.activation_args)
-
-#     def forward(self,encoder_tensors, decoder_tensors, final):
-#         '''
-#         INPUT
-
-#         '''
-#         agg = []
-#         decoder_id = 1+len(decoder_tensors)         # numerating begins with bottelneck to upper layer
-#         encoder_id = self.depth - decoder_id -1  # coresponding encoder index
-#         for i in range(0, encoder_id):            # iterating over all upper encoders to pool these layers
-#             tensor = encoder_tensors[i]
-#             scale_factor = 2**(encoder_id-i)
-#             tensor = self.Down(scale_factor,scale_factor,dimension=self.D).cuda()(tensor)
-#             tensor = self.Conv(self.nPlanes[i], self.num_filters, 3, dimension=self.D, bias=self.allow_bias).cuda()(tensor)
-#             agg.insert(0,tensor)
-
-#         # add features from corresponding encoder
-#         tensor = encoder_tensors[encoder_id]
-#         agg.insert(0,self.Conv(self.nPlanes[encoder_id],
-#                                self.num_filters,
-#                                3,dimension=self.D, 
-#                                bias=self.allow_bias).cuda()(tensor))
-
-#         # upsample bottom layer and add to stack of feature maps
-#         scale_factor = 2**decoder_id
-#         tensor = self.Up(scale_factor, scale_factor, dimension=self.D)(final)
-#         tensor = self.Conv(self.nPlanes[-1], self.num_filters, 3, dimension=self.D, bias=self.allow_bias).cuda()(tensor)
-#         agg.insert(0,tensor)
-#         for i,tensor in enumerate(decoder_tensors):
-#             scale_factor = 2**(decoder_id-1-i)
-#             tensor = self.Up(scale_factor, scale_factor, dimension=self.D).cuda()(tensor)
-#             tensor = self.Conv(self.depth*5, self.num_filters, kernel_size=3, dimension=self.D, bias=self.allow_bias).cuda()(tensor)
-#             agg.insert(i+1,tensor)
-
-    
-#         agg = ME.cat(agg)
-#         agg = self.Conv(agg.shape[1], self.depth*5, 3, dimension=self.D, bias=self.allow_bias).cuda()(agg)
-
-#         # agg = self.BN(agg.shape[1])
-#         # agg = self.ReLU()(agg)
-#         return agg
 
         
 class FeatureAggregationBlock(nn.Module):
@@ -344,19 +272,19 @@ class FeatureAggregationBlock(nn.Module):
         for i, n in enumerate(self.nPlanes):
             m = nn.Sequential(
                 self.Conv(n, self.cat_channels, 3, dimension=self.D, bias=self.allow_bias),
-                self.BN(self.cat_channels),
+                self.BN(self.cat_channels, **self.norm_args),
                 self.ReLU()
             )
             self.encod_conv.append(m)
         self.encod_conv = nn.Sequential(*self.encod_conv)
         self.decod_conv = nn.Sequential(
             self.Conv(self.upsample_channels, self.cat_channels, kernel_size=3, dimension=self.D, bias=self.allow_bias),
-            self.BN(self.cat_channels),
+            self.BN(self.cat_channels, **self.norm_args),
             self.ReLU()
         )
         self.Conv_out = nn.Sequential(
             self.Conv(self.upsample_channels, self.upsample_channels, 3, dimension=self.D, bias=self.allow_bias),
-            self.BN(self.upsample_channels),
+            self.BN(self.upsample_channels,**self.norm_args),
             self.ReLU()
         )
         # self.activation = activations_construct(self.activation_name, **self.activation_args)
@@ -394,9 +322,6 @@ class FeatureAggregationBlock(nn.Module):
     
         agg = ME.cat(agg)
         agg = self.Conv_out(agg)
-
-        # agg = self.BN(agg.shape[1])
-        # agg = self.ReLU()(agg)
         return agg    
 
             
